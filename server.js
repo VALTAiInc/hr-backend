@@ -179,7 +179,8 @@ app.post('/api/transcribe', upload2.single('file'), async (req, res) => {
     form.append('file', fs.createReadStream(filePath), { filename: 'recording.m4a', contentType: 'audio/m4a' });
     form.append('model', 'whisper-1');
     form.append('response_format', 'text');
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const nodeFetch = require('node-fetch');
+    const response = await nodeFetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, ...form.getHeaders() },
       body: form,
