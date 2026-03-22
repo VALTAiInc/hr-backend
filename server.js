@@ -148,3 +148,67 @@ app.listen(PORT, () => {
   console.log(`   Port: ${PORT}`);
   console.log(`   Endpoints: /health | /api/hr/ask | /api/hr/legal | /api/hr/document | /api/hr/cases | /api/hr/policies\n`);
 });
+
+// ─── Chat endpoint (voice conversation mode) ──────────────────────────────────
+const multer = require('multer');
+const upload2 = multer({ dest: '/tmp/hr-uploads/' });
+const FormData2 = require('form-data');
+const fs2 = require('fs');
+
+const HR_SYSTEM_PROMPT = `You are VALT HR Intelligence, an expert HR advisor specializing in Nova Scotia employment law and workplace management. Answer questions about Nova Scotia employment law, HR processes, workplace policies, progressive discipline, termination, leaves, accommodations, harassment, and compensation. Reference the Nova Scotia Labour Standards Code, Human Rights Act, Occupational Health and Safety Act, and Workers Compensation Act. Be professional, clear and practical. Plain text only, no markdown. Note that AI guidance is informational only and legal counsel should be consulted for specific matters.`;
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { messages = [] } = req.body;
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: HR_SYSTEM_PROMPT,
+      messages: messages.filter(m => m.role !== 'system'),
+    });
+    res.json({ content: response.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/transcribe', upload2.single('file'), async (req, res) => {
+  try {
+    const filePath = req.file?.path;
+    if (!filePath) return res.status(400).json({ error: 'No audio file provided.' });
+    const form = new FormData2();
+    form.append('file', fs2.createReadStream(filePath), { filename: 'recording.m4a', contentType: 'audio/m4a' });
+    form.append('model', 'whisper-1');
+    form.append('response_format', 'text');
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, ...form.getHeaders() },
+      body: form,
+    });
+    if (!response.ok) throw new Error('Whisper error ' + response.status);
+    const text = await response.text();
+    fs2.unlink(filePath, () => {});
+    res.json({ text: text.trim() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/speak', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: 'No text provided.' });
+    const voiceId = process.env.VOICE_EN || '21m00Tcm4TlvDq8ikWAM';
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({ text, model_id: 'eleven_turbo_v2', voice_settings: { stability: 0.5, similarity_boost: 0.8 } }),
+    });
+    if (!response.ok) throw new Error('ElevenLabs error ' + response.status);
+    const buffer = await response.buffer();
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
