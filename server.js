@@ -199,7 +199,7 @@ app.post('/api/speak', async (req, res) => {
   try {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: 'No text provided.' });
-    const voiceId = process.env.VOICE_EN || '21m00Tcm4TlvDq8ikWAM';
+    const voiceId = process.env.VOICE_EN || 'OZ0L6eISlOejga3XjDFt';
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
