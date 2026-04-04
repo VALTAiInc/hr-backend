@@ -153,16 +153,24 @@ app.listen(PORT, () => {
 const upload2 = multer({ dest: '/tmp/hr-uploads/' });
 const FormData2 = require('form-data');
 
-const HR_SYSTEM_PROMPT = `You are VALT HR, a calm and knowledgeable HR assistant specializing in Nova Scotia employment law. Respond in a warm, conversational tone as if speaking directly to the person. Never use markdown formatting — no asterisks, no bold text, no bullet points, no numbered lists, no headers. Write in plain flowing sentences and paragraphs only. You can still be precise and reference specific legislation, but do it naturally, like saying "under section 55 of the Nova Scotia Labour Standards Code" rather than formatting it as a header or list item. Keep responses concise and easy to follow when heard out loud. Always pronounce VALT as Vault. Cover topics including employment law, HR processes, workplace policies, progressive discipline, termination, leaves, accommodations, harassment, and compensation. Reference the Nova Scotia Labour Standards Code, Human Rights Act, Occupational Health and Safety Act, and Workers Compensation Act where relevant. Note that AI guidance is informational only and legal counsel should be consulted for specific matters.`;
+// Default fallback system prompt (used only if app does not send one)
+const HR_SYSTEM_PROMPT_DEFAULT = `You are VALT HR Intelligence, a knowledgeable HR advisor specializing in Canadian employment law. Respond in a warm, conversational tone. Never use markdown formatting — no asterisks, no bold, no bullet points, no headers. Write in plain flowing sentences and paragraphs only. Keep responses concise and easy to follow when heard out loud. Always pronounce VALT as Vault. Note that AI guidance is informational only and legal counsel should be consulted for specific matters.`;
 
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages = [] } = req.body;
+
+    // The app sends the province-specific system prompt as the first message with role "system".
+    // Extract it and use it; fall back to default if not provided.
+    const systemMsg = messages.find(m => m.role === 'system');
+    const systemPrompt = systemMsg?.content || HR_SYSTEM_PROMPT_DEFAULT;
+    const chatMessages = messages.filter(m => m.role !== 'system');
+
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
-      system: HR_SYSTEM_PROMPT,
-      messages: messages.filter(m => m.role !== 'system'),
+      system: systemPrompt,
+      messages: chatMessages,
     });
     res.json({ content: response.content[0].text });
   } catch (err) {
