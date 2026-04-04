@@ -154,7 +154,7 @@ const upload2 = multer({ dest: '/tmp/hr-uploads/' });
 const FormData2 = require('form-data');
 
 // Default fallback system prompt (used only if app does not send one)
-const HR_SYSTEM_PROMPT_DEFAULT = `You are VALT HR Intelligence, a knowledgeable HR advisor specializing in Canadian employment law. Respond in a warm, conversational tone. Never use markdown formatting — no asterisks, no bold, no bullet points, no headers. Write in plain flowing sentences and paragraphs only. Keep responses concise and easy to follow when heard out loud. Always pronounce VALT as Vault. Note that AI guidance is informational only and legal counsel should be consulted for specific matters.`;
+const HR_SYSTEM_PROMPT_DEFAULT = `You are VALT HR Intelligence, a knowledgeable HR advisor specializing in Canadian employment law. Respond in a warm, conversational tone. CRITICAL: Never use any markdown formatting whatsoever — no asterisks, no double asterisks, no bold, no bullet points, no numbered lists, no headers, no hyphens as bullets. Write in plain flowing sentences and paragraphs only. Your response will be read aloud by a text-to-speech system so markdown symbols will be spoken literally and sound terrible. Keep responses concise and easy to follow when heard out loud. Always pronounce VALT as Vault. Note that AI guidance is informational only and legal counsel should be consulted for specific matters.`;
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -172,7 +172,16 @@ app.post('/api/chat', async (req, res) => {
       system: systemPrompt,
       messages: chatMessages,
     });
-    res.json({ content: response.content[0].text });
+    // Strip markdown before sending — prevents asterisks/headers being read aloud by TTS
+    const raw = response.content[0].text;
+    const clean = raw
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bold
+      .replace(/\*([^*]+)\*/g, '$1')        // *italic* → italic
+      .replace(/#{1,6}\s+/g, '')             // ## headers → plain
+      .replace(/^[-•]\s+/gm, '')             // bullet points → plain
+      .replace(/\n{3,}/g, '\n\n')            // excess newlines
+      .trim();
+    res.json({ content: clean });
   } catch (err) {
     console.error('chat error:', err.message);
     res.status(500).json({ error: err.message });
