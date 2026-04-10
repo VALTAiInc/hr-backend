@@ -218,7 +218,7 @@ app.post('/api/speak', async (req, res) => {
     if (!text) return res.status(400).json({ error: 'No text provided.' });
     // ElevenLabs hard limit is 5000 chars per request
     const safeText = text.slice(0, 5000);
-    const voiceId = process.env.VOICE_EN || 'OZ0L6eISlOejga3XjDFt';
+    const voiceId = req.body.voiceId || process.env.VOICE_EN || 'OZ0L6eISlOejga3XjDFt';
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
