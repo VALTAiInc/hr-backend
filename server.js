@@ -85,21 +85,51 @@ app.post('/api/hr/legal', async (req, res) => {
 });
 
 app.post('/api/hr/document', async (req, res) => {
-  const { documentType, caseId, employeeName } = req.body;
-  const validTypes = ['verbal-warning', 'written-warning', 'termination'];
+  const { documentType, caseId, employeeName, jurisdiction, province, language, context } = req.body;
+  const validTypes = ['verbal-warning', 'written-warning', 'termination', 'pip'];
   if (!documentType || !validTypes.includes(documentType)) return res.status(400).json({ error: `documentType must be one of: ${validTypes.join(', ')}` });
   if (!employeeName) return res.status(400).json({ error: 'employeeName is required' });
+
   const hrCase = caseId ? readCases().find(c => c.id === caseId) : null;
-  const incidentSummary = hrCase?.incidents.length ? hrCase.incidents.map((inc, i) => `${i + 1}. [${inc.date?.slice(0,10) || 'N/A'}] (${inc.type}) ${inc.description}`).join('\n') : 'No incidents on record.';
-  const docLabels = { 'verbal-warning': 'Verbal Warning Letter', 'written-warning': 'Written Warning Letter', 'termination': 'Termination Letter' };
-  const userContent = [`Document Type: ${docLabels[documentType]}`, `Employee Name: ${employeeName}`, hrCase ? `Department: ${hrCase.department || 'N/A'}\nIssue Type: ${hrCase.issueType}\nJurisdiction: ${hrCase.jurisdiction || 'Ontario'}` : 'Jurisdiction: Ontario', `Incident History:\n${incidentSummary}`, `Today's Date: ${new Date().toISOString().slice(0,10)}`, `\nGenerate a complete, professional ${docLabels[documentType]} as a formal letter. Return only the letter text — no JSON, no preamble.`].filter(Boolean).join('\n\n');
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514', max_tokens: 1500,
-    system: 'You are an HR document specialist. Generate formal, legally appropriate HR letters that are clear, professional, and factual.',
-    messages: [{ role: 'user', content: userContent }],
-  });
-  const document = response.content[0].text.trim();
-  res.json({ document, metadata: { documentType, employeeName, caseId: caseId || null, incidentCount: hrCase ? hrCase.incidents.length : 0, generatedAt: new Date().toISOString(), characters: document.length } });
+  const incidentSummary = hrCase?.incidents?.length
+    ? hrCase.incidents.map((inc, i) => `${i + 1}. [${inc.date?.slice(0,10) || 'N/A'}] (${inc.type || 'Incident'}) ${inc.description || inc.text || ''}`).join('\n')
+    : context || 'No incidents on record.';
+
+  const docLabels = {
+    'verbal-warning': language === 'French' ? 'Lettre d\'avertissement verbal' : 'Verbal Warning Letter',
+    'written-warning': language === 'French' ? 'Lettre d\'avertissement écrit' : 'Written Warning Letter',
+    'termination': language === 'French' ? 'Lettre de licenciement' : 'Termination Letter',
+    'pip': language === 'French' ? 'Plan d\'amélioration du rendement' : 'Performance Improvement Plan',
+  };
+
+  const jurisdictionStr = jurisdiction || province || 'Ontario';
+  const langInstruction = language === 'French'
+    ? 'Write this document entirely in French (français). Use formal French business language appropriate for Quebec or French Canadian workplaces.'
+    : 'Write this document in English.';
+
+  const systemPrompt = `You are an HR document specialist. Generate formal, legally appropriate HR letters that are clear, professional, and factual. Reference the applicable employment legislation for the jurisdiction. ${langInstruction}`;
+
+  const userContent = [
+    `Document Type: ${docLabels[documentType]}`,
+    `Employee Name: ${employeeName}`,
+    `Jurisdiction: ${jurisdictionStr}`,
+    `Today's Date: ${new Date().toISOString().slice(0,10)}`,
+    `Incident History:\n${incidentSummary}`,
+    `\nGenerate a complete, professional ${docLabels[documentType]} as a formal letter referencing ${jurisdictionStr} employment law. Return only the letter text — no JSON, no preamble, no markdown.`,
+  ].filter(Boolean).join('\n\n');
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514', max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }],
+    });
+    const document = response.content[0].text.trim();
+    res.json({ document, metadata: { documentType, employeeName, jurisdiction: jurisdictionStr, language: language || 'English', caseId: caseId || null, generatedAt: new Date().toISOString(), characters: document.length } });
+  } catch (err) {
+    console.error('document error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/hr/cases', (req, res) => {
