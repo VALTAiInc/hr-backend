@@ -109,13 +109,24 @@ app.post('/api/hr/document', async (req, res) => {
 
   const systemPrompt = `You are an HR document specialist. Generate formal, legally appropriate HR letters. CRITICAL FORMATTING RULES: Never use markdown. Never use asterisks. Never use **bold**. Never use # headers. Never use bullet points with dashes. Use numbered lists (1. 2. 3.) only. Write plain text paragraphs only. Markdown symbols will appear literally and look unprofessional. ${langInstruction}`;
 
+  const { companyAddress, companyCity, companyPostal, companyPhone, companyEmail, managerName, managerTitle } = req.body;
+  const letterhead = [
+    companyName || '[Company Name]',
+    companyAddress || null,
+    companyCity ? (companyCity + (companyPostal ? ' ' + companyPostal : '')) : null,
+    companyPhone ? 'Phone: ' + companyPhone : null,
+    companyEmail ? 'Email: ' + companyEmail : null,
+  ].filter(Boolean).join('\n');
+
   const userContent = [
     `Document Type: ${docLabels[documentType]}`,
+    `Company Letterhead:\n${letterhead}`,
+    `Manager: ${managerName || '[Manager Name]'}, ${managerTitle || '[Title]'}`,
     `Employee Name: ${employeeName}`,
     `Jurisdiction: ${jurisdictionStr}`,
-    `Today's Date: ${new Date().toISOString().slice(0,10)}`,
+    `Today's Date: ${new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}`,
     `Incident History:\n${incidentSummary}`,
-    `\nGenerate a complete, professional ${docLabels[documentType]} as a formal letter referencing ${jurisdictionStr} employment law. Return only the letter text — no JSON, no preamble, no markdown.`,
+    `\nGenerate a complete, professional ${docLabels[documentType]} as a formal letter referencing ${jurisdictionStr} employment law. Use the exact company letterhead provided at the top. Sign from ${managerName || '[Manager Name]'}, ${managerTitle || '[Title]'}. Do not use placeholder brackets for fields that have been provided. Return only the letter text — no JSON, no preamble, no markdown, no asterisks.`,
   ].filter(Boolean).join('\n\n');
 
   try {
