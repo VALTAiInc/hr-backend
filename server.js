@@ -109,7 +109,7 @@ app.post('/api/hr/document', async (req, res) => {
 
   const systemPrompt = `You are an HR document specialist. Generate formal, legally appropriate HR letters. CRITICAL FORMATTING RULES: Never use markdown. Never use asterisks. Never use **bold**. Never use # headers. Never use bullet points with dashes. Use numbered lists (1. 2. 3.) only. Write plain text paragraphs only. Markdown symbols will appear literally and look unprofessional. ${langInstruction}`;
 
-  const { companyAddress, companyCity, companyPostal, companyPhone, companyEmail, managerName, managerTitle } = req.body;
+  const { companyName, companyAddress, companyCity, companyPostal, companyPhone, companyEmail, managerName, managerTitle } = req.body;
   const letterhead = [
     companyName || '[Company Name]',
     companyAddress || null,
