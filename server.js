@@ -107,7 +107,7 @@ app.post('/api/hr/document', async (req, res) => {
     ? 'Write this document entirely in French (français). Use formal French business language appropriate for Quebec or French Canadian workplaces.'
     : 'Write this document in English.';
 
-  const systemPrompt = `You are an HR document specialist. Generate formal, legally appropriate HR letters that are clear, professional, and factual. Reference the applicable employment legislation for the jurisdiction. ${langInstruction}`;
+  const systemPrompt = `You are an HR document specialist. Generate formal, legally appropriate HR letters. CRITICAL FORMATTING RULES: Never use markdown. Never use asterisks. Never use **bold**. Never use # headers. Never use bullet points with dashes. Use numbered lists (1. 2. 3.) only. Write plain text paragraphs only. Markdown symbols will appear literally and look unprofessional. ${langInstruction}`;
 
   const userContent = [
     `Document Type: ${docLabels[documentType]}`,
