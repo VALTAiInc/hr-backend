@@ -136,9 +136,7 @@ app.post('/api/hr/document', async (req, res) => {
       messages: [{ role: 'user', content: userContent }],
     });
     const document = response.content[0].text.trim();
-    const pdfBuffer = await generatePDF(document);
-    const pdfBase64 = pdfBuffer.toString('base64');
-    res.json({ document, pdfBase64, metadata: { documentType, employeeName, jurisdiction: jurisdictionStr, language: language || 'English', caseId: caseId || null, generatedAt: new Date().toISOString(), characters: document.length } });
+    res.json({ document, metadata: { documentType, employeeName, jurisdiction: jurisdictionStr, language: language || 'English', caseId: caseId || null, generatedAt: new Date().toISOString(), characters: document.length } });
   } catch (err) {
     console.error('document error:', err.message);
     res.status(500).json({ error: err.message });
